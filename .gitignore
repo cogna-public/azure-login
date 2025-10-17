@@ -1,0 +1,23 @@
+# Binaries
+bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Build artifacts
+dist/
+
+# Local testing files
+Dockerfile.test
+test-smoke.sh
+run-smoke-test.sh
+.env.test
+.env.local
+*.local
