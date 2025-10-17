@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -121,7 +123,7 @@ func (c *Client) GetClusterCredentials(ctx context.Context, resourceGroup, clust
 	}
 
 	var kubeconfigMap map[string]any
-	if err := json.Unmarshal(kubeconfigData, &kubeconfigMap); err != nil {
+	if err := yaml.Unmarshal(kubeconfigData, &kubeconfigMap); err != nil {
 		return nil, fmt.Errorf("failed to parse kubeconfig: %w", err)
 	}
 
