@@ -1,10 +1,13 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/cogna-public/azure-login/internal/auth"
 	"github.com/cogna-public/azure-login/pkg/config"
 	"github.com/spf13/cobra"
 )
@@ -35,11 +38,34 @@ type ExecCredentialStatus struct {
 }
 
 func runKubectlCredential(cmd *cobra.Command, args []string) error {
-	// Load authentication token
+	// Load saved authentication details
 	cfg := config.NewConfig()
-	token, err := cfg.LoadToken()
+	savedToken, err := cfg.LoadToken()
 	if err != nil {
 		return fmt.Errorf("not authenticated. Run 'azure-login login' first")
+	}
+
+	// Get OIDC token from GitHub Actions
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	oidcToken, err := auth.GetGitHubOIDCToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get OIDC token: %w", err)
+	}
+
+	// Exchange OIDC token for Kubernetes-scoped access token
+	// Azure Kubernetes Service AAD Server application ID
+	client := auth.NewClientWithScope(
+		savedToken.TenantID,
+		savedToken.ClientID,
+		savedToken.SubscriptionID,
+		"6dae42f8-4368-4678-94ff-3960e28e3630/.default", // AKS server scope
+	)
+
+	kubeToken, err := client.ExchangeOIDCToken(ctx, oidcToken)
+	if err != nil {
+		return fmt.Errorf("failed to exchange token for Kubernetes scope: %w", err)
 	}
 
 	// Create ExecCredential response
@@ -47,8 +73,8 @@ func runKubectlCredential(cmd *cobra.Command, args []string) error {
 		APIVersion: "client.authentication.k8s.io/v1beta1",
 		Kind:       "ExecCredential",
 		Status: ExecCredentialStatus{
-			Token:               token.AccessToken,
-			ExpirationTimestamp: token.ExpiresOn.Format("2006-01-02T15:04:05Z"),
+			Token:               kubeToken.AccessToken,
+			ExpirationTimestamp: kubeToken.ExpiresOn.Format("2006-01-02T15:04:05Z"),
 		},
 	}
 
