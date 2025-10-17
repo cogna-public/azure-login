@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/cogna-public/azure-login/internal/aks"
 	"github.com/cogna-public/azure-login/pkg/config"
@@ -74,8 +75,22 @@ func runGetCredentials(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
-	// Merge credentials into kubeconfig
-	kubeconfig.MergeClusterCredentials(credentials)
+	// Get the path to the current azure-login executable
+	execPath, err := os.Executable()
+	if err != nil {
+		// If we can't determine the executable path, fall back to just "azure-login"
+		// which will work if it's in PATH
+		execPath = "azure-login"
+	} else {
+		// Resolve any symlinks to get the real path
+		execPath, err = filepath.EvalSymlinks(execPath)
+		if err != nil {
+			execPath = "azure-login"
+		}
+	}
+
+	// Merge credentials into kubeconfig with the full path to azure-login
+	kubeconfig.MergeClusterCredentials(credentials, execPath)
 
 	// Save kubeconfig
 	if err := aks.SaveKubeconfig(kubeconfigPath, kubeconfig); err != nil {
@@ -83,7 +98,6 @@ func runGetCredentials(cmd *cobra.Command, args []string) error {
 	}
 
 	_, _ = fmt.Fprintf(os.Stderr, "Merged \"%s\" as current context in %s\n", clusterName, kubeconfigPath)
-	_, _ = fmt.Fprintf(os.Stderr, "\nNote: This kubeconfig uses Azure CLI authentication. Run 'kubelogin convert-kubeconfig -l azurecli' if needed.\n")
 
 	return nil
 }

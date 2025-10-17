@@ -53,7 +53,6 @@ jobs:
           azure-login aks get-credentials \
             --resource-group my-rg \
             --name my-cluster
-          kubelogin convert-kubeconfig -l azurecli
           kubectl get nodes
 ```
 
@@ -123,7 +122,6 @@ azure-login login \
 
 # Configure kubectl
 azure-login aks get-credentials --resource-group prod-rg --name prod-cluster
-kubelogin convert-kubeconfig -l azurecli
 kubectl get pods
 ```
 
