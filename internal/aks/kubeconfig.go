@@ -153,7 +153,7 @@ func SaveKubeconfig(path string, config *Kubeconfig) error {
 }
 
 // MergeClusterCredentials merges AKS cluster credentials into kubeconfig
-func (k *Kubeconfig) MergeClusterCredentials(creds *ClusterCredentials) {
+func (k *Kubeconfig) MergeClusterCredentials(creds *ClusterCredentials, azureLoginPath string) {
 	clusterName := creds.ClusterName
 	contextName := clusterName
 	userName := fmt.Sprintf("clusterUser_%s_%s", creds.ResourceGroup, creds.ClusterName)
@@ -165,7 +165,7 @@ func (k *Kubeconfig) MergeClusterCredentials(creds *ClusterCredentials) {
 	k.upsertCluster(clusterName, creds.ServerURL, caCertBase64)
 
 	// Add or update user with Azure CLI authentication
-	k.upsertUser(userName)
+	k.upsertUser(userName, azureLoginPath)
 
 	// Add or update context
 	k.upsertContext(contextName, clusterName, userName)
@@ -193,18 +193,22 @@ func (k *Kubeconfig) upsertCluster(name, server, caCert string) {
 	})
 }
 
-func (k *Kubeconfig) upsertUser(name string) {
+func (k *Kubeconfig) upsertUser(name, azureLoginPath string) {
+	// Use full path if provided, otherwise fall back to "azure-login" in PATH
+	command := "azure-login"
+	if azureLoginPath != "" {
+		command = azureLoginPath
+	}
+
 	for i, user := range k.Users {
 		if user.Name == name {
-			// Update existing user with Azure CLI auth
+			// Update existing user with azure-login credential helper
 			k.Users[i].User = User{
 				Exec: &ExecConfig{
 					APIVersion: "client.authentication.k8s.io/v1beta1",
-					Command:    "kubelogin",
+					Command:    command,
 					Args: []string{
-						"get-token",
-						"--login",
-						"azurecli",
+						"kubectl-credential",
 					},
 				},
 			}
@@ -212,17 +216,15 @@ func (k *Kubeconfig) upsertUser(name string) {
 		}
 	}
 
-	// Add new user with Azure CLI auth
+	// Add new user with azure-login credential helper
 	k.Users = append(k.Users, NamedUser{
 		Name: name,
 		User: User{
 			Exec: &ExecConfig{
 				APIVersion: "client.authentication.k8s.io/v1beta1",
-				Command:    "kubelogin",
+				Command:    command,
 				Args: []string{
-					"get-token",
-					"--login",
-					"azurecli",
+					"kubectl-credential",
 				},
 			},
 		},

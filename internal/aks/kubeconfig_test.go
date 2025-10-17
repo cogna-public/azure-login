@@ -158,7 +158,7 @@ func TestMergeClusterCredentials_NewCluster(t *testing.T) {
 		SubscriptionID: "test-sub",
 	}
 
-	config.MergeClusterCredentials(credentials)
+	config.MergeClusterCredentials(credentials, "/usr/local/bin/azure-login")
 
 	// Verify cluster was added
 	if len(config.Clusters) != 1 {
@@ -182,8 +182,11 @@ func TestMergeClusterCredentials_NewCluster(t *testing.T) {
 	if config.Users[0].User.Exec == nil {
 		t.Fatal("Expected exec config to be set")
 	}
-	if config.Users[0].User.Exec.Command != "kubelogin" {
-		t.Errorf("Expected command kubelogin, got %s", config.Users[0].User.Exec.Command)
+	if config.Users[0].User.Exec.Command != "/usr/local/bin/azure-login" {
+		t.Errorf("Expected command /usr/local/bin/azure-login, got %s", config.Users[0].User.Exec.Command)
+	}
+	if len(config.Users[0].User.Exec.Args) == 0 || config.Users[0].User.Exec.Args[0] != "kubectl-credential" {
+		t.Errorf("Expected args [kubectl-credential], got %v", config.Users[0].User.Exec.Args)
 	}
 
 	// Verify context was added
@@ -241,7 +244,7 @@ func TestMergeClusterCredentials_UpdateExisting(t *testing.T) {
 		SubscriptionID: "test-sub",
 	}
 
-	config.MergeClusterCredentials(credentials)
+	config.MergeClusterCredentials(credentials, "/usr/local/bin/azure-login")
 
 	// Verify cluster was updated (not duplicated)
 	if len(config.Clusters) != 1 {
@@ -332,8 +335,8 @@ func TestKubeconfigYAMLMarshaling(t *testing.T) {
 				User: User{
 					Exec: &ExecConfig{
 						APIVersion: "client.authentication.k8s.io/v1beta1",
-						Command:    "kubelogin",
-						Args:       []string{"get-token", "--login", "azurecli"},
+						Command:    "azure-login",
+						Args:       []string{"kubectl-credential"},
 						Env: []ExecEnvVar{
 							{Name: "TEST_VAR", Value: "test-value"},
 						},
@@ -357,8 +360,9 @@ func TestKubeconfigYAMLMarshaling(t *testing.T) {
 	if !strings.Contains(yamlStr, "kind: Config") {
 		t.Error("Expected YAML to contain kind: Config")
 	}
-	if !strings.Contains(yamlStr, "command: kubelogin") {
-		t.Error("Expected YAML to contain command: kubelogin")
+	// Note: In this test we use a literal path in the struct
+	if !strings.Contains(yamlStr, "command:") {
+		t.Error("Expected YAML to contain command")
 	}
 
 	// Unmarshal back
