@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(accountCmd)
+	rootCmd.AddCommand(aksCmd)
 }
 
 var versionCmd = &cobra.Command{
