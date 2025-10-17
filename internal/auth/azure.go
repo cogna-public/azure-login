@@ -39,15 +39,22 @@ type Client struct {
 	tenantID       string
 	clientID       string
 	subscriptionID string
+	scope          string
 	httpClient     *http.Client
 }
 
-// NewClient creates a new authentication client
+// NewClient creates a new authentication client with default scope for Azure Resource Management
 func NewClient(tenantID, clientID, subscriptionID string) *Client {
+	return NewClientWithScope(tenantID, clientID, subscriptionID, "https://management.azure.com/.default")
+}
+
+// NewClientWithScope creates a new authentication client with a custom OAuth2 scope
+func NewClientWithScope(tenantID, clientID, subscriptionID, scope string) *Client {
 	return &Client{
 		tenantID:       tenantID,
 		clientID:       clientID,
 		subscriptionID: subscriptionID,
+		scope:          scope,
 		httpClient: &http.Client{
 			Timeout: AzureTokenExchangeTimeout,
 			// Disable redirects for security (prevents redirect-based attacks)
@@ -68,7 +75,7 @@ func (c *Client) ExchangeOIDCToken(ctx context.Context, oidcToken string) (*Toke
 	data.Set("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer")
 	data.Set("client_assertion", oidcToken)
 	data.Set("grant_type", "client_credentials")
-	data.Set("scope", "https://management.azure.com/.default")
+	data.Set("scope", c.scope)
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, "POST", tokenEndpoint, strings.NewReader(data.Encode()))
