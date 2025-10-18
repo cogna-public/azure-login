@@ -132,8 +132,8 @@ func TestExchangeOIDCToken_InvalidJSON(t *testing.T) {
 
 	// Test that client timeout is set
 	client := NewClient("test-tenant", "test-client-id", "test-subscription")
-	if client.httpClient.Timeout != 30*time.Second {
-		t.Errorf("Expected timeout 30s, got %v", client.httpClient.Timeout)
+	if client.httpClient.Timeout != 10*time.Second {
+		t.Errorf("Expected timeout 10s, got %v", client.httpClient.Timeout)
 	}
 }
 
@@ -196,8 +196,8 @@ func TestNewClient(t *testing.T) {
 			if client.httpClient == nil {
 				t.Error("Expected httpClient to be initialized")
 			}
-			if client.httpClient.Timeout != 30*time.Second {
-				t.Errorf("Expected timeout 30s, got %v", client.httpClient.Timeout)
+			if client.httpClient.Timeout != 10*time.Second {
+				t.Errorf("Expected timeout 10s, got %v", client.httpClient.Timeout)
 			}
 		})
 	}
@@ -253,8 +253,8 @@ func TestNewClientWithScope(t *testing.T) {
 			if client.httpClient == nil {
 				t.Error("Expected httpClient to be initialized")
 			}
-			if client.httpClient.Timeout != 30*time.Second {
-				t.Errorf("Expected timeout 30s, got %v", client.httpClient.Timeout)
+			if client.httpClient.Timeout != 10*time.Second {
+				t.Errorf("Expected timeout 10s, got %v", client.httpClient.Timeout)
 			}
 		})
 	}
@@ -313,7 +313,7 @@ func TestExchangeOIDCToken_ContextCancellation(t *testing.T) {
 func TestClientHTTPTimeout(t *testing.T) {
 	// Create a slow server that takes longer than timeout
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(35 * time.Second) // Longer than 30s timeout
+		time.Sleep(15 * time.Second) // Longer than 10s timeout
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -321,11 +321,11 @@ func TestClientHTTPTimeout(t *testing.T) {
 	client := NewClient("test-tenant", "test-client-id", "test-subscription")
 
 	// Verify timeout is configured
-	if client.httpClient.Timeout != 30*time.Second {
-		t.Errorf("Expected 30s timeout, got %v", client.httpClient.Timeout)
+	if client.httpClient.Timeout != 10*time.Second {
+		t.Errorf("Expected 10s timeout, got %v", client.httpClient.Timeout)
 	}
 
-	// Note: We don't actually make the request to avoid waiting 30s in tests
-	// In a real request, this would timeout after 30 seconds
+	// Note: We don't actually make the request to avoid waiting 10s in tests
+	// In a real request, this would timeout after 10 seconds
 	_ = server.URL // Use server to avoid unused variable warning
 }

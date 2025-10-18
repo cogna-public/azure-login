@@ -41,6 +41,7 @@ func init() {
 	rootCmd.AddCommand(accountCmd)
 	rootCmd.AddCommand(aksCmd)
 	rootCmd.AddCommand(kubectlCredentialCmd)
+	rootCmd.AddCommand(oidcCmd)
 }
 
 var versionCmd = &cobra.Command{

@@ -153,8 +153,9 @@ func TestGetGitHubOIDCToken_EmptyTokenValue(t *testing.T) {
 	if token != "" {
 		t.Errorf("Expected empty token, got '%s'", token)
 	}
-	if err.Error() != "empty OIDC token received" {
-		t.Errorf("Unexpected error message: %v", err)
+	expectedMsg := "failed to get OIDC token: empty OIDC token received"
+	if err.Error() != expectedMsg {
+		t.Errorf("Expected error message '%s', got '%v'", expectedMsg, err)
 	}
 }
 
