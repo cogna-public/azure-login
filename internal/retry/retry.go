@@ -87,15 +87,25 @@ func IsRetryable(err error) bool {
 		return false
 	}
 
+	// Check for URL errors first (they often wrap other errors)
+	// This must come before the context.DeadlineExceeded check because
+	// http.Client timeouts wrap context.DeadlineExceeded in a url.Error,
+	// and we want to retry HTTP client timeouts (transient) but not
+	// user-initiated context deadlines (intentional).
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		// If this is a timeout error from an HTTP client, it's retryable
+		// even though the underlying error may be context.DeadlineExceeded
+		if urlErr.Timeout() {
+			return true
+		}
+		// For non-timeout URL errors, recursively check the wrapped error
+		return IsRetryable(urlErr.Err)
+	}
+
 	// Check for context errors (don't retry user cancellations or expired contexts)
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
-	}
-
-	// Check for URL errors first (they often wrap other errors)
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		return IsRetryable(urlErr.Err)
 	}
 
 	// Check for operation errors (connection refused, reset, etc.)
