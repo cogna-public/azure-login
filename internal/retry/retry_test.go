@@ -180,6 +180,15 @@ func TestIsRetryable(t *testing.T) {
 			retryable: false,
 		},
 		{
+			name: "http client timeout (url.Error with context.DeadlineExceeded)",
+			err: &url.Error{
+				Op:  "Post",
+				URL: "https://example.com",
+				Err: context.DeadlineExceeded,
+			},
+			retryable: true,
+		},
+		{
 			name:      "generic error",
 			err:       errors.New("some error"),
 			retryable: false,
