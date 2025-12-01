@@ -60,14 +60,25 @@ jobs:
 
 **Authentication:**
 ```bash
-azure-login login --client-id <ID> --tenant-id <TENANT> [--subscription-id <SUB>]
+azure-login login --client-id <ID> --tenant-id <TENANT> [--subscription-id <SUB>] [--scope <SCOPE>]
 ```
+
+Parameters:
+- `--scope`: OAuth2 scope for the access token (default: `https://management.azure.com/.default`)
+  - Azure Resource Manager: `https://management.azure.com/.default` (default)
+  - Azure DevOps: `https://app.vssps.visualstudio.com/.default`
+  - Microsoft Graph: `https://graph.microsoft.com/.default`
+  - Azure Storage: `https://storage.azure.com/.default`
+  - Azure Key Vault: `https://vault.azure.net/.default`
 
 **Account Information:**
 ```bash
 azure-login account show
-azure-login account get-access-token [--query <JMESPATH>] [-o json|tsv]
+azure-login account get-access-token [--scope <SCOPE>] [--query <JMESPATH>] [-o json|tsv]
 ```
+
+Parameters:
+- `--scope`: Validate that cached token matches this scope (optional). If scope differs, cache is invalidated and you must re-authenticate.
 
 **Azure Kubernetes Service:**
 ```bash
@@ -104,6 +115,7 @@ To use OIDC authentication, configure the following in Azure:
 
 ### Package Authentication
 
+**Azure Artifacts (ARM scope - default):**
 ```bash
 # Login without subscription
 azure-login login \
@@ -113,6 +125,22 @@ azure-login login \
 
 # Get token for Azure Artifacts
 TOKEN=$(azure-login account get-access-token --query accessToken -o tsv)
+pip install --index-url https://user:${TOKEN}@pkgs.dev.azure.com/org/_packaging/feed/pypi/simple/ package
+```
+
+**Azure DevOps Artifacts (DevOps scope):**
+```bash
+# Login with Azure DevOps scope
+azure-login login \
+  --client-id "12345678-1234-1234-1234-123456789012" \
+  --tenant-id "87654321-4321-4321-4321-210987654321" \
+  --allow-no-subscriptions \
+  --scope https://app.vssps.visualstudio.com/.default
+
+# Get token for Azure DevOps
+TOKEN=$(azure-login account get-access-token --query accessToken -o tsv)
+
+# Use with pip/uv for Azure Artifacts
 pip install --index-url https://user:${TOKEN}@pkgs.dev.azure.com/org/_packaging/feed/pypi/simple/ package
 ```
 

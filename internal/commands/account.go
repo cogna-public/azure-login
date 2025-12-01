@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	outputFormat string
-	queryString  string
+	outputFormat  string
+	queryString   string
+	getTokenScope string
 )
 
 var accountCmd = &cobra.Command{
@@ -43,6 +44,7 @@ func init() {
 
 	accountGetAccessTokenCmd.Flags().StringVarP(&outputFormat, "output", "o", "json", "Output format: json, tsv, table")
 	accountGetAccessTokenCmd.Flags().StringVar(&queryString, "query", "", "JMESPath query string")
+	accountGetAccessTokenCmd.Flags().StringVar(&getTokenScope, "scope", "", "OAuth2 scope (if different from cached token, will invalidate cache)")
 }
 
 func runAccountShow(cmd *cobra.Command, args []string) error {
@@ -71,6 +73,16 @@ func runGetAccessToken(cmd *cobra.Command, args []string) error {
 	token, err := cfg.LoadToken()
 	if err != nil {
 		return fmt.Errorf("not authenticated. Run 'azure-login login' first")
+	}
+
+	// If scope was specified, validate it matches cached token
+	if getTokenScope != "" && token.Scope != getTokenScope {
+		// Invalidate cached token
+		if err := cfg.DeleteToken(); err != nil {
+			return fmt.Errorf("failed to invalidate cached token: %w", err)
+		}
+		return fmt.Errorf("cached token scope '%s' does not match requested scope '%s'. Token cache invalidated. Please re-authenticate with: azure-login login --scope %s",
+			token.Scope, getTokenScope, getTokenScope)
 	}
 
 	// Check if token is expired or expiring soon (5 minute buffer for clock skew and API latency)
