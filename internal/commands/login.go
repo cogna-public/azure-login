@@ -15,6 +15,7 @@ var (
 	tenantID            string
 	subscriptionID      string
 	allowNoSubscription bool
+	loginScope          string
 
 	// uuidPattern matches Azure UUID/GUID format (8-4-4-4-12 hex digits)
 	uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -33,6 +34,7 @@ func init() {
 	loginCmd.Flags().StringVar(&tenantID, "tenant-id", "", "Azure Active Directory Tenant ID")
 	loginCmd.Flags().StringVar(&subscriptionID, "subscription-id", "", "Azure Subscription ID (optional)")
 	loginCmd.Flags().BoolVar(&allowNoSubscription, "allow-no-subscriptions", false, "Allow authentication without subscription")
+	loginCmd.Flags().StringVar(&loginScope, "scope", "https://management.azure.com/.default", "OAuth2 scope for token (default: Azure Resource Manager)")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
@@ -77,7 +79,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	// Exchange OIDC token for Azure access token
-	authClient := auth.NewClient(tenantID, clientID, subscriptionID)
+	authClient := auth.NewClientWithScope(tenantID, clientID, subscriptionID, loginScope)
 	tokenResponse, err := authClient.ExchangeOIDCToken(cmd.Context(), oidcToken)
 	if err != nil {
 		return fmt.Errorf("failed to exchange OIDC token: %w", err)
@@ -85,7 +87,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 	// Save token to cache
 	cfg := config.NewConfig()
-	if err := cfg.SaveToken(tokenResponse); err != nil {
+	if err := cfg.SaveToken(tokenResponse, loginScope); err != nil {
 		return fmt.Errorf("failed to save token: %w", err)
 	}
 

@@ -32,6 +32,7 @@ type SavedToken struct {
 	TenantID       string    `json:"tenant_id"`
 	ClientID       string    `json:"client_id"`
 	SubscriptionID string    `json:"subscription_id"`
+	Scope          string    `json:"scope"`
 }
 
 // NewConfig creates a new configuration manager
@@ -53,7 +54,7 @@ func NewConfig() *Config {
 }
 
 // SaveToken saves the authentication token to disk using atomic writes
-func (c *Config) SaveToken(token *auth.TokenResponse) error {
+func (c *Config) SaveToken(token *auth.TokenResponse, scope string) error {
 	// Ensure config directory exists
 	if err := os.MkdirAll(c.configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
@@ -67,6 +68,7 @@ func (c *Config) SaveToken(token *auth.TokenResponse) error {
 		TenantID:       token.TenantID,
 		ClientID:       token.ClientID,
 		SubscriptionID: token.SubscriptionID,
+		Scope:          scope,
 	}
 
 	// Marshal to JSON

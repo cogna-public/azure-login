@@ -52,7 +52,8 @@ func TestSaveAndLoadToken(t *testing.T) {
 	}
 
 	// Test SaveToken
-	err := config.SaveToken(testToken)
+	testScope := "https://management.azure.com/.default"
+	err := config.SaveToken(testToken, testScope)
 	if err != nil {
 		t.Fatalf("SaveToken failed: %v", err)
 	}
@@ -93,6 +94,9 @@ func TestSaveAndLoadToken(t *testing.T) {
 	}
 	if loadedToken.SubscriptionID != testToken.SubscriptionID {
 		t.Errorf("SubscriptionID mismatch: expected %s, got %s", testToken.SubscriptionID, loadedToken.SubscriptionID)
+	}
+	if loadedToken.Scope != testScope {
+		t.Errorf("Scope mismatch: expected %s, got %s", testScope, loadedToken.Scope)
 	}
 	// Time comparison with small delta for rounding
 	if loadedToken.ExpiresOn.Sub(testToken.ExpiresOn).Abs() > time.Second {
@@ -140,7 +144,7 @@ func TestDeleteToken(t *testing.T) {
 		SubscriptionID: "subscription",
 	}
 
-	err := config.SaveToken(testToken)
+	err := config.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("SaveToken failed: %v", err)
 	}
@@ -188,7 +192,7 @@ func TestSaveToken_AtomicWrite(t *testing.T) {
 	}
 
 	// Save token
-	err := config.SaveToken(testToken)
+	err := config.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("SaveToken failed: %v", err)
 	}
@@ -230,7 +234,7 @@ func TestSaveToken_ConcurrentWrites(t *testing.T) {
 				ClientID:       "client",
 				SubscriptionID: "subscription",
 			}
-			err := cfg.SaveToken(testToken)
+			err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 			done <- err
 		}(i)
 	}
@@ -280,7 +284,7 @@ func TestSaveToken_DirectoryCreation(t *testing.T) {
 	}
 
 	// Should create directory if it doesn't exist
-	err := config.SaveToken(testToken)
+	err := config.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("SaveToken failed to create directory: %v", err)
 	}
@@ -334,6 +338,7 @@ func TestSavedTokenFields(t *testing.T) {
 		TenantID:       "tenant",
 		ClientID:       "client",
 		SubscriptionID: "subscription",
+		Scope:          "https://management.azure.com/.default",
 	}
 
 	if token.AccessToken != "test-token" {
@@ -344,5 +349,103 @@ func TestSavedTokenFields(t *testing.T) {
 	}
 	if !token.ExpiresOn.Equal(now) {
 		t.Errorf("Expected ExpiresOn %v, got %v", now, token.ExpiresOn)
+	}
+	if token.Scope != "https://management.azure.com/.default" {
+		t.Errorf("Expected Scope https://management.azure.com/.default, got %s", token.Scope)
+	}
+}
+
+func TestSaveAndLoadToken_WithCustomScope(t *testing.T) {
+	// Create temporary directory for test
+	tmpDir := t.TempDir()
+	_ = os.Setenv("AZURE_CONFIG_DIR", tmpDir)
+	defer func() { _ = os.Unsetenv("AZURE_CONFIG_DIR") }()
+
+	config := NewConfig()
+
+	// Create test token
+	expiresOn := time.Now().Add(1 * time.Hour)
+	testToken := &auth.TokenResponse{
+		AccessToken:    "test-access-token-devops",
+		TokenType:      "Bearer",
+		ExpiresIn:      3600,
+		ExpiresOn:      expiresOn,
+		TenantID:       "test-tenant-id",
+		ClientID:       "test-client-id",
+		SubscriptionID: "test-subscription-id",
+	}
+
+	// Test SaveToken with Azure DevOps scope
+	devOpsScope := "https://app.vssps.visualstudio.com/.default"
+	err := config.SaveToken(testToken, devOpsScope)
+	if err != nil {
+		t.Fatalf("SaveToken failed: %v", err)
+	}
+
+	// Test LoadToken
+	loadedToken, err := config.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken failed: %v", err)
+	}
+
+	// Verify scope matches
+	if loadedToken.Scope != devOpsScope {
+		t.Errorf("Scope mismatch: expected %s, got %s", devOpsScope, loadedToken.Scope)
+	}
+}
+
+func TestSaveToken_OverwritesDifferentScope(t *testing.T) {
+	// Create temporary directory for test
+	tmpDir := t.TempDir()
+	_ = os.Setenv("AZURE_CONFIG_DIR", tmpDir)
+	defer func() { _ = os.Unsetenv("AZURE_CONFIG_DIR") }()
+
+	config := NewConfig()
+
+	// Create test token
+	testToken := &auth.TokenResponse{
+		AccessToken:    "test-token-1",
+		TokenType:      "Bearer",
+		ExpiresIn:      3600,
+		ExpiresOn:      time.Now().Add(1 * time.Hour),
+		TenantID:       "test-tenant",
+		ClientID:       "test-client",
+		SubscriptionID: "test-subscription",
+	}
+
+	// Save token with ARM scope
+	armScope := "https://management.azure.com/.default"
+	err := config.SaveToken(testToken, armScope)
+	if err != nil {
+		t.Fatalf("SaveToken failed: %v", err)
+	}
+
+	// Verify ARM scope is saved
+	loadedToken, err := config.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken failed: %v", err)
+	}
+	if loadedToken.Scope != armScope {
+		t.Errorf("Expected ARM scope, got %s", loadedToken.Scope)
+	}
+
+	// Save token with DevOps scope (overwrites previous)
+	devOpsScope := "https://app.vssps.visualstudio.com/.default"
+	testToken.AccessToken = "test-token-2"
+	err = config.SaveToken(testToken, devOpsScope)
+	if err != nil {
+		t.Fatalf("SaveToken with new scope failed: %v", err)
+	}
+
+	// Verify DevOps scope is now saved
+	loadedToken, err = config.LoadToken()
+	if err != nil {
+		t.Fatalf("LoadToken failed: %v", err)
+	}
+	if loadedToken.Scope != devOpsScope {
+		t.Errorf("Expected DevOps scope, got %s", loadedToken.Scope)
+	}
+	if loadedToken.AccessToken != "test-token-2" {
+		t.Errorf("Expected new token, got %s", loadedToken.AccessToken)
 	}
 }

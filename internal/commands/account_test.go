@@ -54,7 +54,7 @@ func TestRunAccountShow_Success(t *testing.T) {
 		ClientID:       "test-client",
 		SubscriptionID: "test-subscription",
 	}
-	err := cfg.SaveToken(testToken)
+	err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("Failed to save test token: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestRunGetAccessToken_Success(t *testing.T) {
 		ClientID:       "test-client",
 		SubscriptionID: "test-subscription",
 	}
-	err := cfg.SaveToken(testToken)
+	err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("Failed to save test token: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestRunGetAccessToken_ExpiredToken(t *testing.T) {
 		ClientID:       "test-client",
 		SubscriptionID: "test-subscription",
 	}
-	err := cfg.SaveToken(testToken)
+	err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("Failed to save test token: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestRunGetAccessToken_ExpiringSoonToken(t *testing.T) {
 		ClientID:       "test-client",
 		SubscriptionID: "test-subscription",
 	}
-	err := cfg.SaveToken(testToken)
+	err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("Failed to save test token: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestRunGetAccessToken_WithQuery(t *testing.T) {
 		ClientID:       "test-client",
 		SubscriptionID: "test-subscription",
 	}
-	err := cfg.SaveToken(testToken)
+	err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 	if err != nil {
 		t.Fatalf("Failed to save test token: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestRunGetAccessToken_DifferentFormats(t *testing.T) {
 				ClientID:       "test-client",
 				SubscriptionID: "test-subscription",
 			}
-			err := cfg.SaveToken(testToken)
+			err := cfg.SaveToken(testToken, "https://management.azure.com/.default")
 			if err != nil {
 				t.Fatalf("Failed to save test token: %v", err)
 			}
@@ -240,4 +240,131 @@ func TestRunGetAccessToken_DifferentFormats(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunGetAccessToken_WithMatchingScope(t *testing.T) {
+	_ = setupTestConfig(t)
+	defer cleanupTestConfig()
+
+	// Save a test token with ARM scope
+	cfg := config.NewConfig()
+	armScope := "https://management.azure.com/.default"
+	testToken := &auth.TokenResponse{
+		AccessToken:    "test-token-arm",
+		TokenType:      "Bearer",
+		ExpiresIn:      3600,
+		ExpiresOn:      time.Now().Add(1 * time.Hour),
+		TenantID:       "test-tenant",
+		ClientID:       "test-client",
+		SubscriptionID: "test-subscription",
+	}
+	err := cfg.SaveToken(testToken, armScope)
+	if err != nil {
+		t.Fatalf("Failed to save test token: %v", err)
+	}
+
+	// Request token with matching scope should succeed
+	cmd := accountGetAccessTokenCmd
+	outputFormat = "json"
+	queryString = ""
+	getTokenScope = armScope
+	err = cmd.RunE(cmd, []string{})
+	if err != nil {
+		t.Errorf("get-access-token with matching scope failed: %v", err)
+	}
+
+	// Reset getTokenScope for other tests
+	getTokenScope = ""
+}
+
+func TestRunGetAccessToken_WithMismatchedScope(t *testing.T) {
+	tmpDir := setupTestConfig(t)
+	defer cleanupTestConfig()
+
+	// Save a test token with ARM scope
+	cfg := config.NewConfig()
+	armScope := "https://management.azure.com/.default"
+	testToken := &auth.TokenResponse{
+		AccessToken:    "test-token-arm",
+		TokenType:      "Bearer",
+		ExpiresIn:      3600,
+		ExpiresOn:      time.Now().Add(1 * time.Hour),
+		TenantID:       "test-tenant",
+		ClientID:       "test-client",
+		SubscriptionID: "test-subscription",
+	}
+	err := cfg.SaveToken(testToken, armScope)
+	if err != nil {
+		t.Fatalf("Failed to save test token: %v", err)
+	}
+
+	// Request token with different scope should fail and invalidate cache
+	cmd := accountGetAccessTokenCmd
+	devOpsScope := "https://app.vssps.visualstudio.com/.default"
+	getTokenScope = devOpsScope
+	err = cmd.RunE(cmd, []string{})
+	if err == nil {
+		t.Fatal("Expected error for mismatched scope, got none")
+	}
+
+	// Verify error message is helpful
+	expectedErrSubstring := "does not match requested scope"
+	if !contains(err.Error(), expectedErrSubstring) {
+		t.Errorf("Expected error to contain '%s', got: %v", expectedErrSubstring, err)
+	}
+
+	// Verify cache was invalidated
+	tokenPath := filepath.Join(tmpDir, "azure-login-token.json")
+	if _, err := os.Stat(tokenPath); !os.IsNotExist(err) {
+		t.Error("Token cache should have been invalidated")
+	}
+
+	// Reset getTokenScope for other tests
+	getTokenScope = ""
+}
+
+func TestRunGetAccessToken_WithoutScope(t *testing.T) {
+	_ = setupTestConfig(t)
+	defer cleanupTestConfig()
+
+	// Save a test token with DevOps scope
+	cfg := config.NewConfig()
+	devOpsScope := "https://app.vssps.visualstudio.com/.default"
+	testToken := &auth.TokenResponse{
+		AccessToken:    "test-token-devops",
+		TokenType:      "Bearer",
+		ExpiresIn:      3600,
+		ExpiresOn:      time.Now().Add(1 * time.Hour),
+		TenantID:       "test-tenant",
+		ClientID:       "test-client",
+		SubscriptionID: "test-subscription",
+	}
+	err := cfg.SaveToken(testToken, devOpsScope)
+	if err != nil {
+		t.Fatalf("Failed to save test token: %v", err)
+	}
+
+	// Request token without specifying scope should succeed
+	cmd := accountGetAccessTokenCmd
+	outputFormat = "json"
+	queryString = ""
+	getTokenScope = "" // No scope specified
+	err = cmd.RunE(cmd, []string{})
+	if err != nil {
+		t.Errorf("get-access-token without scope parameter failed: %v", err)
+	}
+}
+
+// Helper function to check if string contains substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
