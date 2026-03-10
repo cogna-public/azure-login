@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(accountCmd)
+	rootCmd.AddCommand(acrCmd)
 	rootCmd.AddCommand(aksCmd)
 	rootCmd.AddCommand(kubectlCredentialCmd)
 	rootCmd.AddCommand(oidcCmd)
