@@ -48,6 +48,10 @@ jobs:
         run: |
           echo "token=$(azure-login account get-access-token --query accessToken -o tsv)" >> $GITHUB_OUTPUT
 
+      - name: Login to ACR
+        run: |
+          azure-login acr login --name myregistry
+
       - name: Get AKS Credentials
         run: |
           azure-login aks get-credentials \
@@ -79,6 +83,11 @@ azure-login account get-access-token [--scope <SCOPE>] [--query <JMESPATH>] [-o 
 
 Parameters:
 - `--scope`: Validate that cached token matches this scope (optional). If scope differs, cache is invalidated and you must re-authenticate.
+
+**Azure Container Registry:**
+```bash
+azure-login acr login --name <REGISTRY>
+```
 
 **Azure Kubernetes Service:**
 ```bash
@@ -157,6 +166,28 @@ azure-login login \
 azure-login aks get-credentials --resource-group prod-rg --name prod-cluster
 kubectl get pods
 ```
+
+### ACR Login
+
+```bash
+# Login to Azure
+azure-login login \
+  --client-id "$AZURE_CLIENT_ID" \
+  --tenant-id "$AZURE_TENANT_ID" \
+  --subscription-id "$AZURE_SUBSCRIPTION_ID"
+
+# Login to ACR (short name or FQDN)
+azure-login acr login --name myregistry
+# or
+azure-login acr login --name myregistry.azurecr.io
+
+# Now docker/podman commands work
+docker pull myregistry.azurecr.io/myimage:latest
+docker push myregistry.azurecr.io/myimage:v1.0
+```
+
+The identity (service principal / managed identity) must have an ACR role
+assignment such as `AcrPull` or `AcrPush` on the target registry.
 
 ### Python SDK Authentication
 
@@ -241,6 +272,10 @@ env:
 
 **"token expired"**
 - Run `azure-login login` again to refresh
+
+**"ACR token exchange failed (status 401)"**
+- The identity doesn't have an ACR role (AcrPull, AcrPush, etc.) on the registry
+- The AAD token may have expired - run `azure-login login` again
 
 **Connection errors in CI**
 - Retries are enabled by default (3 attempts)
