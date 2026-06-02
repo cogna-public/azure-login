@@ -10,9 +10,9 @@ import (
 
 func TestContainerCreate(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     int
-		wantErr    bool
+		name    string
+		status  int
+		wantErr bool
 	}{
 		{"created", http.StatusCreated, false},
 		{"already exists", http.StatusConflict, false},
@@ -39,9 +39,9 @@ func TestContainerCreate(t *testing.T) {
 
 func TestContainerDelete(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     int
-		wantErr    bool
+		name    string
+		status  int
+		wantErr bool
 	}{
 		{"accepted", http.StatusAccepted, false},
 		{"not found", http.StatusNotFound, false},
@@ -68,9 +68,9 @@ func TestContainerDelete(t *testing.T) {
 
 func TestQueueCreate(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     int
-		wantErr    bool
+		name    string
+		status  int
+		wantErr bool
 	}{
 		{"created", http.StatusCreated, false},
 		{"already exists same metadata", http.StatusNoContent, false},
@@ -98,9 +98,9 @@ func TestQueueCreate(t *testing.T) {
 
 func TestQueueDelete(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     int
-		wantErr    bool
+		name    string
+		status  int
+		wantErr bool
 	}{
 		{"deleted", http.StatusNoContent, false},
 		{"not found", http.StatusNotFound, false},
