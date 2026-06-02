@@ -94,6 +94,14 @@ azure-login acr login --name <REGISTRY>
 azure-login aks get-credentials --resource-group <RG> --name <CLUSTER>
 ```
 
+**Azure Storage:**
+```bash
+azure-login storage container create --account-name <ACCOUNT> --name <CONTAINER>
+azure-login storage container delete --account-name <ACCOUNT> --name <CONTAINER>
+azure-login storage queue create --account-name <ACCOUNT> --name <QUEUE>
+azure-login storage queue delete --account-name <ACCOUNT> --name <QUEUE>
+```
+
 **OIDC Token Management:**
 ```bash
 azure-login oidc get-token [--query <JMESPATH>] [-o json|tsv|table]
