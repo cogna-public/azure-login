@@ -1,6 +1,6 @@
 module github.com/cogna-public/azure-login
 
-go 1.25
+go 1.26.10
 
 require (
 	github.com/jmespath/go-jmespath v0.4.0
